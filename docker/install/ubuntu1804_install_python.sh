@@ -32,15 +32,16 @@ trap cleanup 0
 # instead modify install_python_package.sh
 apt-get update
 apt-get install -y software-properties-common
-apt-get install -y python3.7 python3.7-dev python3-pip
+# NOTE: There is no python3.7-pip, but whatever installed is upgraded anyway in a few lines.
+apt-get install -y python3.7 python3.7-dev python3-pip python3.7-venv
 update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
 
-# Pin pip and setuptools versions
-# Hashes generated via:
-#   $ pip download <package>==<version>
-#   $ pip hash --algorithm sha512 <package>.whl
-cat <<EOF > base-requirements.txt
-pip==19.3.1 --hash=sha256:6917c65fc3769ecdc61405d3dfd97afdedd75808d200b2838d7d961cebc0c2c7
-setuptools==58.4.0 --hash=sha256:e8b1d3127a0441fb99a130bcc3c2bf256c2d3ead3aba8fd400e5cbbaf788e036
-EOF
-pip3 install -r base-requirements.txt
+# Update pip to match version used to produce requirements-hashed.txt. This step
+# is necessary so that pip's dependency solver is recent.
+pip_spec=$(cat /install/python/bootstrap/lockfiles/constraints.txt | grep 'pip==')
+pip3 install -U --require-hashes -r <(echo "${pip_spec}") \
+     -c /install/python/bootstrap/lockfiles/constraints.txt
+pip3 config set global.no-cache-dir false
+
+# Now install the remaining base packages.
+pip3 install -r /install/python/bootstrap/lockfiles/constraints.txt

@@ -31,15 +31,9 @@ trap cleanup 0
 # instead modify install_python_package.sh
 apt-get update
 apt-get install -y software-properties-common
-apt-get install -y python3.8 python3.8-dev python3-pip
+apt-get install -y python3.8 python3.8-dev python3-pip python3.7-venv
 update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 
-# Pin pip and setuptools versions
-# Hashes generated via:
-#   $ pip download <package>==<version>
-#   $ pip hash --algorithm sha256 <package>.whl
-cat <<EOF > base-requirements.txt
-pip==22.0.4 --hash=sha256:c6aca0f2f081363f689f041d90dab2a07a9a07fb840284db2218117a52da800b
-setuptools==58.4.0 --hash=sha256:e8b1d3127a0441fb99a130bcc3c2bf256c2d3ead3aba8fd400e5cbbaf788e036
-EOF
-pip3 install -r base-requirements.txt
+pip3 install -U pip -c /install/python/bootstrap-requirements.txt  # Update pip to match version used to produce base-requirements.txt
+pip3 config set global.no-cache-dir false
+pip3 install -r /install/python/bootstrap-requirements.txt -c /install/python/bootstrap-requirements.txt
