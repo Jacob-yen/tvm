@@ -42,7 +42,9 @@ sudo apt-get update
 
 sudo apt-get install -y cmake
 
-pip3 install west
+python3 -mvenv /venv/west
+/venv/west/bin/pip3 install west
+ln -s /venv/west/bin/west /usr/local/bin/
 
 # Init ZephyrProject
 ZEPHYR_PROJECT_PATH=/opt/zephyrproject

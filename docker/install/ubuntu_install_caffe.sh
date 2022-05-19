@@ -34,6 +34,7 @@ cd /caffe_src
 
 echo "Building Caffe"
 mkdir /caffe_src/build && cd /caffe_src/build
+. "${TVM_VENV}/bin/activate"
 cmake -DCMAKE_INSTALL_PREFIX=${CAFFE_HOME}\
     -DCMAKE_BUILD_TYPE=Release \
     -DCPU_ONLY=1 \
