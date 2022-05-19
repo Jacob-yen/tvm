@@ -1,0 +1,4 @@
+# These packages are needed for the base Python environment in TVM docker images.
+pip
+poetry
+setuptools
