@@ -24,7 +24,7 @@
 #                [--dockerfile <DOCKERFILE_PATH>] [-it]
 #                [--net=host] [--cache-from <IMAGE_NAME>] [--cache]
 #                [--name CONTAINER_NAME] [--context-path <CONTEXT_PATH>]
-#                [--spec DOCKER_IMAGE_SPEC]
+#                [--spec DOCKER_IMAGE_SPEC] [--platform <PLATFORM>]
 #                [<COMMAND>]
 #
 # CONTAINER_TYPE: Type of the docker container used the run the build,
@@ -42,6 +42,8 @@
 #
 # IMAGE_NAME: An image to be as a source for cached layers when building the
 #             Docker image requested.
+#
+# PLATFORM: Docker platform suitable to be passed to docker buildx build --platform.
 #
 # CONTAINER_NAME: The name of the docker container, and the hostname that will
 #                 appear inside the container.
@@ -88,7 +90,15 @@ if [[ "$1" == "--net=host" ]]; then
     shift 1
 fi
 
-DOCKER_NO_CACHE_ARG=--no-cache
+PLATFORM=
+if [[ "$1" == "--platform" ]]; then
+    shift
+    PLATFORM="$1"
+    shift
+fi
+
+DOCKER_NO_CACHE_ARG=
+#--no-cache
 
 if [[ "$1" == "--cache-from" ]]; then
     shift 1
@@ -157,27 +167,27 @@ function upsearch () {
         cd .. && upsearch "$1"
 }
 
+# Under Jenkins matrix build, the build tag may contain characters such as
+# commas (,) and equal signs (=), which are not valid inside docker image names.
+# Convert to all lower-case, as per requirement of Docker image names
+function sanitize_docker_name() {
+    echo -n "$@" | python3 -c 'import sys; import urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe="").lower())' | tr % -
+}
+
 # Set up WORKSPACE and BUILD_TAG. Jenkins will set them for you or we pick
 # reasonable defaults if you run it outside of Jenkins.
 WORKSPACE="${WORKSPACE:-${SCRIPT_DIR}/../}"
-BUILD_TAG="${BUILD_TAG:-tvm}"
-DOCKER_IMAGE_TAG="${DOCKER_IMAGE_TAG:-latest}"
+BUILD_TAG=$(sanitize_docker_name "${BUILD_TAG:-tvm}")
 
 # Determine the docker image name
-DOCKER_IMG_NAME="${BUILD_TAG}.${CONTAINER_TYPE}"
-
-# Under Jenkins matrix build, the build tag may contain characters such as
-# commas (,) and equal signs (=), which are not valid inside docker image names.
-DOCKER_IMG_NAME=$(echo "${DOCKER_IMG_NAME}" | sed -e 's/=/_/g' -e 's/,/-/g')
-
-# Convert to all lower-case, as per requirement of Docker image names
-DOCKER_IMG_NAME=$(echo "${DOCKER_IMG_NAME}" | tr '[:upper:]' '[:lower:]')
+DOCKER_IMG_NAME=${BUILD_TAG}.$(sanitize_docker_name "${CONTAINER_TYPE}")
+DOCKER_IMAGE_TAG=$(sanitize_docker_name "${DOCKER_IMAGE_TAG:-latest}")
 
 # Compose the full image spec with "name:tag" e.g. "tvm.ci_cpu:v0.03"
 DOCKER_IMG_SPEC="${DOCKER_IMG_NAME}:${DOCKER_IMAGE_TAG}"
 
 if [[ -n ${OVERRIDE_IMAGE_SPEC+x} ]]; then
-    DOCKER_IMG_SPEC="$OVERRIDE_IMAGE_SPEC"
+    DOCKER_IMG_SPEC="${OVERRIDE_IMAGE_SPEC}" #$(sanitize_docker_name "$OVERRIDE_IMAGE_SPEC")
 fi
 
 # Print arguments.
@@ -185,6 +195,7 @@ echo "WORKSPACE: ${WORKSPACE}"
 echo "CI_DOCKER_EXTRA_PARAMS: ${CI_DOCKER_EXTRA_PARAMS[@]}"
 echo "COMMAND: ${COMMAND[@]}"
 echo "CONTAINER_TYPE: ${CONTAINER_TYPE}"
+echo "PLATFORM: ${PLATFORM}"
 echo "BUILD_TAG: ${BUILD_TAG}"
 echo "DOCKER CONTAINER NAME: ${DOCKER_IMG_NAME}"
 echo "DOCKER_IMAGE_TAG: ${DOCKER_IMAGE_TAG}"
@@ -193,12 +204,23 @@ echo ""
 
 
 # Build the docker container.
+cmd=( docker )
+if [ -n "${PLATFORM}" ]; then
+    cmd=( "${cmd[@]}" buildx build --platform "${PLATFORM}" )
+else
+    cmd=( "${cmd[@]}" build )
+fi
+cmd=( "${cmd[@]}" \
+          -t "${DOCKER_IMG_SPEC}" \
+          "${DOCKER_NO_CACHE_ARG}" \
+          -f "${DOCKERFILE_PATH}" \
+          "${CI_DOCKER_BUILD_EXTRA_PARAMS[@]}" \
+          "${DOCKER_CONTEXT_PATH}" \
+    )
+
 echo "Building container (${DOCKER_IMG_NAME})..."
-docker build -t ${DOCKER_IMG_SPEC} \
-    ${DOCKER_NO_CACHE_ARG} \
-    -f "${DOCKERFILE_PATH}" \
-    ${CI_DOCKER_BUILD_EXTRA_PARAMS[@]} \
-    "${DOCKER_CONTEXT_PATH}"
+echo "${cmd[@]}"
+${cmd[@]}
 
 # Check docker build status
 if [[ $? != "0" ]]; then

@@ -45,7 +45,7 @@
 // 'python3 jenkins/generate.py'
 // Note: This timestamp is here to ensure that updates to the Jenkinsfile are
 // always rebased on main before merging:
-// Generated at 2022-05-20T13:24:01.371704
+// Generated at 2022-05-23T16:10:37.732212
 
 import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 // NOTE: these lines are scanned by docker/dev_common.sh. Please update the regex as needed. -->
@@ -248,7 +248,17 @@ def build_image(image_name) {
     returnStdout: true,
     script: 'git log -1 --format=\'%h\''
   ).trim()
-  def full_name = "${image_name}:${env.BRANCH_NAME}-${hash}-${env.BUILD_NUMBER}"
+  image_name = sh(
+    returnStdout: true,
+    script: "docker/sanitize-docker-image-name.sh ${image_name}",
+    label: "Sanitize docker image name"
+  ).trim()
+  def image_version = sh(
+    returnStdout: true,
+    script: "docker/sanitize-docker-image-name.sh ${env.BRANCH_NAME}-${hash}-${env.BUILD_NUMBER}",
+    label: "Sanitize docker image name"
+  ).trim()
+  def full_name = "${image_name}:${image_version}"
   sh(
     script: "${docker_build} ${image_name} --spec ${full_name}",
     label: 'Build docker image'
@@ -276,14 +286,16 @@ def build_image(image_name) {
           ''',
           label: 'Log in to ECR'
         )
+        def uploaded_name = "\$AWS_ACCOUNT_ID.dkr.ecr.\$AWS_DEFAULT_REGION.amazonaws.com/${full_name}"
         sh(
           script: """
             set -x
-            docker tag ${full_name} \$AWS_ACCOUNT_ID.dkr.ecr.\$AWS_DEFAULT_REGION.amazonaws.com/${full_name}
-            docker push \$AWS_ACCOUNT_ID.dkr.ecr.\$AWS_DEFAULT_REGION.amazonaws.com/${full_name}
+            docker tag ${full_name} ${uploaded_name}
+            docker push ${uploaded_name}
           """,
           label: 'Upload image to ECR'
         )
+        return uploaded_name;
       }
     }
   } finally {
@@ -305,56 +317,56 @@ def build_docker_images() {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_lint')
+          ci_lint = build_image('ci_lint')
         }
       }
     }, 'ci-cpu': {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_cpu')
+          ci_cpu = build_image('ci_cpu')
         }
       }
     }, 'ci-gpu': {
       node('GPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_gpu')
+          ci_gpu = build_image('ci_gpu')
         }
       }
     }, 'ci-qemu': {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_qemu')
+          ci_qemu = build_image('ci_qemu')
         }
       }
     }, 'ci-i386': {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_i386')
+          ci_i386 = build_image('ci_i386')
         }
       }
     }, 'ci-arm': {
       node('ARM') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_arm')
+          ci_arm = build_image('ci_arm')
         }
       }
     }, 'ci-wasm': {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_wasm')
+          ci_wasm = build_image('ci_wasm')
         }
       }
     }, 'ci-hexagon': {
       node('CPU') {
         timeout(time: max_time, unit: 'MINUTES') {
           init_git()
-          build_image('ci_hexagon')
+          ci_hexagon = build_image('ci_hexagon')
         }
       }
     }
