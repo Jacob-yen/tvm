@@ -25,8 +25,10 @@ do
   if ! [ "$dir" == "3rdparty" ]; then
     for subdir in $(find $dir -type d -print)
     do
-      blocklint --blocklist blacklist,whitelist,white\ box,master\ ,\ master,master_,_master,slave $subdir \
-      --skip-files tests/lint/blocklint.sh,tests/lint/pylintrc,conda/recipe/meta.yaml,rust/tvm-sys/build.rs,docs/topic/vta/dev/hardware.rst,src/target/source/codegen_vhls.cc,tests/micro/zephyr/test_utils.py
+        "${TVM_VENV}/bin/blocklint" \
+            --blocklist blacklist,whitelist,white\ box,master\ ,\ master,master_,_master,slave \
+            $subdir \
+            --skip-files tests/lint/blocklint.sh,tests/lint/pylintrc,conda/recipe/meta.yaml,rust/tvm-sys/build.rs,docs/topic/vta/dev/hardware.rst,src/target/source/codegen_vhls.cc,tests/micro/zephyr/test_utils.py
     done
   fi
 done

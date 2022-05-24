@@ -18,4 +18,4 @@
 
 set -e
 
-python3 3rdparty/dmlc-core/scripts/lint.py tvm4j-jni cpp jvm/native/src
+"${TVM_VENV}/bin/python3" 3rdparty/dmlc-core/scripts/lint.py tvm4j-jni cpp jvm/native/src

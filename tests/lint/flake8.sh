@@ -18,4 +18,4 @@
 
 set -e
 
-python3 -m flake8 . --count --select=E9,F63,F7 --show-source --statistics
+"${TVM_VENV}/bin/python3" -m flake8 . --count --select=E9,F63,F7 --show-source --statistics
